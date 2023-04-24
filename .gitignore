@@ -1,0 +1,7 @@
+geckodriver.log
+output.log
+__pycache__
+.venv
+secret.py
+backup.json
+.DS_Store
