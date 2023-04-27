@@ -11,7 +11,6 @@ import time
 import json
 import logging
 
-logging.basicConfig(filename="output.log", level="INFO")
 
 def getDoccumentTypeAmountKeyPressesNeeded(url):
     if "docs.google.com/document/d/" in url:
@@ -24,12 +23,16 @@ def getDoccumentTypeAmountKeyPressesNeeded(url):
         return False, False
 
 if not os.path.exists(secret.DESTPATH):
-    shutil.copytree(secret.SRCPATH, secret.DESTPATH)
+    os.mkdir(secret.DESTPATH)
+    os.mkdir(os.path.join(secret.DESTPATH, "Downloads"))
+    shutil.copytree(secret.SRCPATH, os.path.join(secret.DESTPATH, "files"))
+    with open(os.path.join(secret.DESTPATH, "README.txt"), 'w') as f:
+        f.write("The copied files are located in the /file directory. The .json files in this directory are used to keep track of which files have already been downloaded. If you wish to transfer more files in the future, DO NOT modify the file structure. Instead, copy the /files directory and move it elsewhere.")
 
-if not os.path.exists("backup.json"):
-    with open("backup.json", 'w') as f:
+if not os.path.exists(os.path.join(secret.DESTPATH, "filequeue.json")):
+    with open(os.path.join(secret.DESTPATH, "filequeue.json"), 'w') as f:
         fstructure = {}
-        pathstack = [secret.DESTPATH]
+        pathstack = [os.path.join(secret.DESTPATH, "files")]
         htmlstack = []
         while True:
             if pathstack == []:
@@ -42,11 +45,14 @@ if not os.path.exists("backup.json"):
                     htmlstack.append(os.path.join(currentpath, filename))
         json.dump(htmlstack, f)
 else:
-    with open("backup.json", 'r') as f:
+    with open(os.path.join(secret.DESTPATH,"filequeue.json"), 'r') as f:
         htmlstack = json.load(f)
+    with open(os.path.join(secret.DESTPATH, "downloadedfiles.json"), 'r') as f:
+        downloaded_files = json.load(f)
 
 #DRIVER IS HERE IF YOU ARE LOOKING TO CHANGE IT
 driver = webdriver.Firefox()
+logging.basicConfig(filename=os.path.join(secret.DESTPATH, "missing_files.log"), level="WARNING")
 
 #login to Google
 driver.get("file://" +os.path.join(os.getcwd(),  'loginmsg.html'))
@@ -62,7 +68,7 @@ ActionChains(driver).send_keys("Downloads").perform()
 driver.switch_to.window(original_handle)
 with open("settingsmsg.html", "w") as f:
     f.seek(0)
-    path = os.path.join(os.getcwd(), "Downloads")
+    path = os.path.join(secret.DESTPATH, "Downloads")
     f.write(f"Please open the new tab in your browser window and set to default download location to {path}. Press enter when done.")
 driver.get("file://" +os.path.join(os.getcwd(),  'settingsmsg.html'))
 input("Follow the instructions in the browser window. When you are done, press enter.")
@@ -72,8 +78,9 @@ driver.switch_to.window(original_handle)
 while True:
     time.sleep(2+random.random())
     fpath = htmlstack.pop()
+    downloaded_files.append(fpath)
 
-    current_file_list = os.listdir("Downloads")
+    current_file_list = os.listdir(os.path.join(secret.DESTPATH, "Downloads"))
     current_file_list = [f for f in current_file_list if not f.startswith(".")]
 
     with open(fpath, 'r') as f:
@@ -92,7 +99,7 @@ while True:
 
     if amountKeypress == False:
         logging.warning(f"Unknown filetype. The following url will NOT be automatically downloaded: {url}")
-        with open("backup.json", 'w') as f:
+        with open(os.path.join(secret.DESTPATH, "filequeue.json"), 'w') as f:
             json.dump(htmlstack, f)
         continue
     else: 
@@ -108,8 +115,8 @@ while True:
         ActionChains(driver).send_keys(Keys.ENTER).perform()
 
     while True:
-        files = os.listdir('Downloads')
-        files = [os.path.join("Downloads",  f) for f in files if "." in f and not f.startswith(".")]
+        files = os.listdir(os.path.join(secret.DESTPATH, "Downloads"))
+        files = [os.path.join(os.path.join(secret.DESTPATH, "Downloads"),  f) for f in files if "." in f and not f.startswith(".")]
         if len(files) == 0:
             time.sleep(1)
             continue
@@ -123,8 +130,11 @@ while True:
     os.remove(newest_file)
     os.remove(fpath)
 
-    with open("backup.json", 'w') as f:
+    with open(os.path.join(secret.DESTPATH,"filequeue.json"), 'w') as f:
         json.dump(htmlstack, f)
+
+    with open(os.path.join(secret.DESTPATH,"downloadedfiles.json"), 'w') as f:
+        json.dump(downloaded_files, f)
 
 
 
