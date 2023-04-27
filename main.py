@@ -10,7 +10,9 @@ import random
 import time
 import json
 import logging
-
+import pandas as pds
+import docx
+import pptx
 
 def getDoccumentTypeAmountKeyPressesNeeded(url):
     if "docs.google.com/document/d/" in url:
@@ -18,7 +20,7 @@ def getDoccumentTypeAmountKeyPressesNeeded(url):
     elif "docs.google.com/spreadsheets/d/" in url:
         return 7,  ".xlsx"
     elif "docs.google.com/presentation/d/" in url:
-        return 7, ".pptx"
+        return 6, ".pptx"
     else:
         return False, False
 
@@ -109,7 +111,7 @@ while True:
         for i in range(amountKeypress):
             time.sleep(random.random()+0.5)     
             ActionChains(driver).send_keys(Keys.ARROW_DOWN).perform()
-
+        time.sleep(random.random()+0.5)
         ActionChains(driver).send_keys(Keys.ARROW_RIGHT).perform()
         time.sleep(random.random()+1)
         ActionChains(driver).send_keys(Keys.ENTER).perform()
@@ -120,9 +122,34 @@ while True:
         if len(files) == 0:
             time.sleep(1)
             continue
-        newest_file = max(files, key=os.path.getctime)
-        break
 
+        newest_file = max(files, key=os.path.getctime)
+
+        #this is probably about the worst way , but it works (i think)
+
+        #verify download has finished
+        if extension == ".docx":
+            try:
+                doc = docx.Document(newest_file)
+            except Exception as e:
+                time.sleep(2)
+            else:
+                break
+        elif extension == ".xlsx":
+            try:
+                sheet = pds.read_excel(newest_file)
+            except Exception as e:
+                time.sleep(2)
+            else:
+                break
+        elif extension == ".pptx":
+            try:
+                presentation = pptx.Presentation(newest_file)
+            except Exception as e:
+                time.sleep(2)
+            else:
+                break
+                
     save_name = fpath[0:-5] + extension
 
     shutil.copy(newest_file, save_name)
