@@ -25,7 +25,7 @@ for a list of these files after usage. The log file will provide urls to the mis
 
 ## Quickstart (for those who have an idea of what they are doing)
 - Clone repository
-- Ensure you have Firefox and geckodriver installed (or replace the driver in line 54 of main.py)
+- Ensure you have Firefox and geckodriver installed
 - pip install -r requirements.txt
 - Replace SRCPATH in secret.py with the path to "Takeout/Drive" of your Google Archive
 - Replace DESTPATH in secret.py with desired backup path (backup is created and modified instead of original, this should not be an existing folder)
