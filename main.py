@@ -20,7 +20,10 @@ def getDoccumentTypeAmountKeyPressesNeeded(url):
     elif "docs.google.com/spreadsheets/d/" in url:
         return 7,  ".xlsx"
     elif "docs.google.com/presentation/d/" in url:
-        return 6, ".pptx"
+        return False, False
+        #return 6, ".pptx"
+    elif "IteractiveLogin" in url:
+        raise Exception("Served login page. Restart the script again.")
     else:
         return False, False
 
@@ -33,26 +36,29 @@ if not os.path.exists(secret.DESTPATH):
 
 if not os.path.exists(os.path.join(secret.DESTPATH, "filequeue.json")):
     with open(os.path.join(secret.DESTPATH, "filequeue.json"), 'w') as f:
-        fstructure = {}
-        pathstack = [os.path.join(secret.DESTPATH, "files")]
+        pathstack = [""]
         htmlstack = []
+        downloaded_files = []     
         while True:
             if pathstack == []:
                 break
             currentpath = pathstack.pop()
-            for filename in os.listdir(currentpath):
-                if os.path.isdir(os.path.join(currentpath, filename)):
+            full_path = os.path.join(secret.DESTPATH, "files", currentpath)
+            for filename in os.listdir(full_path):
+                if os.path.isdir(os.path.join(full_path, filename)):
                     pathstack.append(os.path.join(currentpath, filename))
                 elif filename.endswith(".html"):
                     htmlstack.append(os.path.join(currentpath, filename))
         json.dump(htmlstack, f)
+
+    with open(os.path.join(secret.DESTPATH, "downloadedfiles.json"), 'w') as f:
+        json.dump(downloaded_files, f)
 else:
     with open(os.path.join(secret.DESTPATH,"filequeue.json"), 'r') as f:
         htmlstack = json.load(f)
     with open(os.path.join(secret.DESTPATH, "downloadedfiles.json"), 'r') as f:
         downloaded_files = json.load(f)
 
-#DRIVER IS HERE IF YOU ARE LOOKING TO CHANGE IT
 driver = webdriver.Firefox()
 logging.basicConfig(filename=os.path.join(secret.DESTPATH, "missing_files.log"), level="WARNING")
 
@@ -76,11 +82,14 @@ driver.get("file://" +os.path.join(os.getcwd(),  'settingsmsg.html'))
 input("Follow the instructions in the browser window. When you are done, press enter.")
 driver.switch_to.window(original_handle)
 
-
 while True:
+    if len(htmlstack) % 10 == 0:
+        print(f"There are {len(htmlstack)} files left to download.\n")
+
     time.sleep(2+random.random())
     fpath = htmlstack.pop()
     downloaded_files.append(fpath)
+    fpath = os.path.join(secret.DESTPATH, "files", fpath)
 
     current_file_list = os.listdir(os.path.join(secret.DESTPATH, "Downloads"))
     current_file_list = [f for f in current_file_list if not f.startswith(".")]
@@ -91,6 +100,7 @@ while True:
     anchor = soup.find_all('a', href=True)
 
     if len(anchor) != 1:
+        logging.warning(f"Skipped file: {fpath}")
         continue
 
     url = anchor[0]['href']
@@ -100,7 +110,7 @@ while True:
     amountKeypress, extension = getDoccumentTypeAmountKeyPressesNeeded(url)
 
     if amountKeypress == False:
-        logging.warning(f"Unknown filetype. The following url will NOT be automatically downloaded: {url}")
+        logging.critical(f"URL:{url}, FPATH:{fpath}")
         with open(os.path.join(secret.DESTPATH, "filequeue.json"), 'w') as f:
             json.dump(htmlstack, f)
         continue
@@ -108,8 +118,9 @@ while True:
         time.sleep(random.random() + 1)
         element = driver.find_element(By.XPATH, '//*[@id="docs-file-menu"]')
         element.click()
+        time.sleep(1)
         for i in range(amountKeypress):
-            time.sleep(random.random()+0.5)     
+            time.sleep(random.random()+1)     
             ActionChains(driver).send_keys(Keys.ARROW_DOWN).perform()
         time.sleep(random.random()+0.5)
         ActionChains(driver).send_keys(Keys.ARROW_RIGHT).perform()
@@ -117,15 +128,13 @@ while True:
         ActionChains(driver).send_keys(Keys.ENTER).perform()
 
     while True:
+        #get newest file
         files = os.listdir(os.path.join(secret.DESTPATH, "Downloads"))
         files = [os.path.join(os.path.join(secret.DESTPATH, "Downloads"),  f) for f in files if "." in f and not f.startswith(".")]
         if len(files) == 0:
             time.sleep(1)
             continue
-
         newest_file = max(files, key=os.path.getctime)
-
-        #this is probably about the worst way , but it works (i think)
 
         #verify download has finished
         if extension == ".docx":
@@ -153,7 +162,7 @@ while True:
     save_name = fpath[0:-5] + extension
 
     shutil.copy(newest_file, save_name)
-    print(f"File saved to {save_name}")
+    print(f"{fpath} -> {save_name}\n")
     os.remove(newest_file)
     os.remove(fpath)
 
