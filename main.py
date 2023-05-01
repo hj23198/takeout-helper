@@ -22,7 +22,7 @@ def getDoccumentTypeAmountKeyPressesNeeded(url):
     elif "docs.google.com/presentation/d/" in url:
         return False, False
         #return 6, ".pptx"
-    elif "IteractiveLogin" in url:
+    elif "InteractiveLogin" in url:
         raise Exception("Served login page. Restart the script again.")
     else:
         return False, False
